@@ -1,0 +1,601 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Shiny Web Apps
+
+Shiny permite la creación de aplicaciones web interactivas de R.
+
+## Secciones de una Shiny App
+
+Al momento de crear un nuevo archivo*Shiny Web App* se crean dos tipos de documentos:
+
+1.  *server*:
+
+    -   Es el arcgivo en donde se realizan las acciones. Generación de *outputs* como graficos, tablas calculos y modelos, etc. La creación de estos *outputs* es en base a los *inputs* provenientes de la interfaz de usuario (ui).
+
+    -   La función principal del archivo *server* es `render()` (Table, Plot, DataTable, etc). Estas funciones requieren el uso de paréntesis adicionales del tipo `{}` .
+
+    -   El orden de los *outputs* en el server no importa, ya que esto se realiza en el otro archivo Shiny: la interfaz de usuario (ui).
+
+    -   La función `shinyServer()` indica que el archio .R en el que se encuentre es designado como el servidor de la aplicación Shiny.
+
+    -   Aquí se cargan los paquetes que se emplean para trabajar los *inputs* del usuario.
+
+    -   *Lo que pasa dentro del render, queda en el render*. Por ejemplo, si cargo datos dentro de una función render esto quedan disponibles unicamente para esa función.
+
+        ```{r}
+
+        library(shiny)
+        library(ggplot2)
+
+        data("mtcars")
+
+        # Define server logic required to draw a histogram
+        shinyServer(function(input, output) {
+
+            output$distPlot <- renderPlot({
+
+                ggplot(data = mtcars, aes(x = wt, y = mpg)) + geom_point()
+
+            })
+
+        })
+
+        ```
+
+2.  *User Interface (ui)*:
+
+    -   Se trabaja con *inputs* del usuario de la aplicación tales como sliders, cajas de selección, etc. Para esto se emplea la designación con el nombre de los objetos creados.
+
+    -   Al cambiar los *inputs* tambien se modifican los *outputs* de la aplicación.
+
+    -   Podemos mejorar la apariencia de la interfaz de usuario mediante la inclusión de títulos, párrafos, estilos, etc.
+
+    -   A diferencia de lo que ocurre en el *server*, el orden **sí** importa en el *ui*.
+
+    -   La función `shinyUI()` indica que el archivo .R en el que se encuentre es el designado como interfaz de usuario de la aplicación Shiny.
+
+    -   Sólo muestra los *output* de la aplicación, por lo que no es necesario cargar paquetes específicos.
+
+        ```{r}
+
+        library(shiny)
+
+        # Define UI for application that draws a histogram
+        shinyUI(fluidPage(
+
+            # Application title
+            titlePanel("Old Faithful Geyser Data"),
+
+            # Sidebar with a slider input for number of bins
+            sidebarLayout(
+                sidebarPanel(
+                    sliderInput("bins",
+                                "Number of bins:",
+                                min = 1,
+                                max = 50,
+                                value = 30)
+                ),
+
+                # Show a plot of the generated distribution
+                mainPanel(
+                    plotOutput("distPlot")
+                )
+            )
+        ))
+
+        ```
+
+En este caso, la función `fluidPage` corresponde a una forma de presentar la aplicación en donde se divide la pantalla en dos secciones, cada una siendo confgurable a través de sus funciones respectivas:
+
+1.  *sidebarLayout*: Sección más angosta.
+2.  *mainPanel*: Sección más ancha.
+
+> Para designar los nombres de objetos en el server se señala con signo `$` en el objeto *output*. `output$distPlot`
+
+### *¿Cómo agregar otro output en el server?*
+
+Se pueden generar múltiples outputs en un servidor. Para esto, se agregan nuevos objetos *output* (`output$`) **afuera** de las funciones `render` .
+
+En este caso, agregaremos una tabla adicional por lo que cualquier objeto o resultado que se asemeje a una tabla (data.frame, matriz, etc).
+
+```{r}
+
+library(shiny)
+library(dplyr)
+library(ggplot2)
+
+data("mtcars")
+
+# Define server logic required to draw a histogram
+shinyServer(function(input, output) {
+
+    # Output 1
+    output$distPlot <- renderPlot({
+
+        ggplot(data = mtcars, aes(x = wt, y = mpg)) + geom_point()
+
+    })
+    
+    # Output 2
+    output$Table <- renderTable({
+      
+      # data frame
+      mtcars %>% group_by(am) %>% summarise(across(.cols = everything(), .fns = mean))
+      
+    })
+
+})
+
+```
+
+Para que la tabla generada aparezca en la aplicación se requiere un paso final; indicar dicho output en el *ui*. Esto es producto de que el server es destinado para la creación de material mientras que el ui es para mostrar estos materiales.
+
+```{r}
+
+library(shiny)
+
+# Define UI for application that draws a histogram
+shinyUI(fluidPage(
+
+    # Application title
+    titlePanel("Old Faithful Geyser Data"),
+
+    # Sidebar with a slider input for number of bins
+    sidebarLayout(
+        sidebarPanel(
+            sliderInput("bins",
+                        "Number of bins:",
+                        min = 1,
+                        max = 50,
+                        value = 30)
+        ),
+
+        # Show a plot of the generated distribution
+        mainPanel(
+            plotOutput("distPlot"),
+            tableOutput("Table")
+        )
+    )
+))
+
+```
+
+### *Tablas dinámicas con DataTable*
+
+Podemos crear otro tipos de tablas consideradas como *dinámicas* lo que permite una interfaz que le permite mayor control al usuario. Para esto, se ocupa `DataTable` tanto en el *server* como en el *ui*.
+
+```{r}
+
+library(shiny)
+library(dplyr)
+library(ggplot2)
+
+data("mtcars")
+
+# Define server logic required to draw a histogram
+shinyServer(function(input, output) {
+
+    # Output 1
+    output$distPlot <- renderPlot({
+
+        ggplot(data = mtcars, aes(x = wt, y = mpg)) + geom_point()
+
+    })
+    
+    # Output 2
+    output$Table <- renderDataTable({
+      
+      # data frame
+      mtcars %>% group_by(am) %>% summarise(across(.cols = everything(), .fns = mean))
+      
+    })
+
+})
+
+```
+
+```{r}
+
+library(shiny)
+
+# Define UI for application that draws a histogram
+shinyUI(fluidPage(
+
+    # Application title
+    titlePanel("Old Faithful Geyser Data"),
+
+    # Sidebar with a slider input for number of bins
+    sidebarLayout(
+        sidebarPanel(
+            sliderInput(inputId = "bins",
+                        label = "Number of bins:",
+                        min = 1,
+                        max = 50,
+                        value = 30)
+        ),
+
+        # Show a plot of the generated distribution
+        mainPanel(
+            plotOutput("distPlot"),
+            dataTableOutput("Table")
+        )
+    )
+))
+
+```
+
+## Agreguemos un input distinto a la UI
+
+Aparte del input en forma de *slider* tambien existen otros más tales como el de *selección.*
+
+-   *ui*
+
+```{r}
+
+library(shiny)
+
+shinyUI(fluidPage(
+  
+  titlePanel("Datos de motor trends de 1974"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput(
+        inputId = "Variable",
+        label = "Selecciona la Variable :",
+        choices = c("cyl", "disp", "hp", "drat", "wt", "qsec", "vs", "am", "gear", "carb"),
+        selected = "wt")
+    ),
+    mainPanel(
+      plotOutput("distPlot"),
+      dataTableOutput("Table")
+    )
+  )
+))
+
+```
+
+Pero, simplemente se creo un input que no se encuentra conectado con el *server*. Para esto se emplea el objeto *input* con `input$Variable` .
+
+-   *server*
+
+```{r}
+
+library(shiny)
+library(dplyr)
+library(ggplot2)
+
+data("mtcars")
+
+# Define server logic required to draw a histogram
+shinyServer(function(input, output) {
+
+    # Output 1
+    output$distPlot <- renderPlot({
+
+        ggplot(data = mtcars, aes_string(x = input$Variable, y = "mpg")) + geom_point()
+
+    })
+    
+    # Output 2
+    output$Table <- renderDataTable({
+      
+      # data frame
+      mtcars %>% group_by(am) %>% summarise(across(.cols = everything(), .fns = mean))
+      
+    })
+
+})
+
+```
+
+> Se emplea el `aes_string()` debido a que el *input* trabaja con caracteres.
+
+## Generando mayor interacción
+
+-   *ui*: El input del usuario puede localizarse en cualquiera de los dos paneles.
+
+```{r}
+
+    mainPanel(
+       plotOutput("distPlot"),
+       selectInput("Modelo", "Selecciona el tipo de modelo:",
+                   choices = c("lm", "loess", "gam"), selected = "lm")
+    )
+
+```
+
+-   *server*
+
+```{r}
+
+output$distPlot <- renderPlot({
+    ggplot(mtcars, aes_string(x = input$Variable, y = "mpg")) + geom_smooth(method = input$Modelo) + geom_point()
+  })
+
+```
+
+## Otros tipos de input
+
+### *sliderInput*
+
+Se puden agregar sliders con distintos objetivos.
+
+-   *ui*
+
+```{r}
+
+    sidebarPanel(
+      selectInput("Variable",
+                  "Selecciona la Variable x:",
+                  choices = c("cyl", "disp", "hp", "drat", "wt", "qsec", "vs", "am", 
+                              "gear", "carb"),
+                  selected = "wt"),
+      sliderInput("YLIM", "Selecciona los límites del eje y:", min = 0, max = 40, 
+                  step = 2, value = c(0,20)
+                  )
+    )
+
+```
+
+-   *server*
+
+```{r}
+
+  output$distPlot <- renderPlot({
+    p <- ggplot(mtcars, aes_string(x = input$Variable, y = "mpg")) + geom_smooth(method = input$Modelo) + geom_point()
+    p + ylim(input$YLIM)
+  })
+  
+```
+
+### *textInput*
+
+-   *ui*
+
+```{r}
+
+library(shiny)
+
+shinyUI(fluidPage(
+  
+  titlePanel("Datos de motor trends de 1974"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput(
+        inputId = "Variable",
+        label = "Selecciona la Variable x:",
+        choices = c("cyl", "disp", "hp", "drat", "wt", "qsec", "vs", "am", "gear", "carb"),
+        selected = "wt")
+    ),
+    
+    mainPanel(
+      plotOutput("distPlot"),
+      textInput(
+        inputId = "Formula", 
+        label = "Escribe la formula de tu modelo:",
+        value =  "y ~ x + I(x^2)"
+        )
+    )
+  )
+))
+
+```
+
+-   *server*
+
+```{r}
+
+library(shiny)
+library(dplyr)
+library(ggplot2)
+
+data("mtcars")
+
+shinyServer(function(input, output) {
+  
+  output$distPlot <- renderPlot({
+    ggplot(
+      data = mtcars, 
+      aes_string(x = input$Variable, y = "mpg")
+      ) + 
+      stat_smooth(
+        method = "lm", 
+        formula = input$Formula
+        ) + 
+      geom_point() + 
+      theme_bw()
+  })
+  
+})
+
+```
+
+Mientras el usuario está escribiendo el input la aplicación se va actualizando, lo que podría generar problemas cuando el output en cuestión es demandante de procesamiento. Podríamos incorporar un botón de actualización para controlar dicho inconveniente ya que hasta que no se aprete dicho botón la aplicación no se reiniciará.
+
+### Botón de *submit*
+
+-   *ui*
+
+```{r}
+
+library(shiny)
+
+shinyUI(fluidPage(
+  
+  titlePanel("Datos de motor trends de 1974"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput(
+        inputId = "Variable",
+        label = "Selecciona la Variable x:",
+        choices = c("cyl", "disp", "hp", "drat", "wt", "qsec", "vs", "am", "gear", "carb"),
+        selected = "wt"),
+      textInput(
+        inputId = "Formula", 
+        label = "Escribe la formula de tu modelo:",
+        value =  "y ~ x + I(x^2)"
+      ),
+      submitButton(
+        text = "Actualizar modelo",
+        icon = icon(name = "refresh")
+      )
+    ),
+    
+    mainPanel(
+      plotOutput("distPlot")
+    )
+  )
+))
+```
+
+-   *server*
+
+```{r}
+
+library(shiny)
+library(dplyr)
+library(ggplot2)
+
+data("mtcars")
+
+# Define server logic required to draw a histogram
+shinyServer(function(input, output) {
+  
+  output$distPlot <- renderPlot({
+    ggplot(
+      data = mtcars, 
+      aes_string(x = input$Variable, y = "mpg")
+      ) + 
+      stat_smooth(
+        method = "lm", 
+        formula = input$Formula
+        ) + 
+      geom_point() + 
+      theme_bw()
+  })
+  
+})
+
+```
+
+## Transformación de variables en factores
+
+Se desea generar un sistema tal que permita seleccionar qué variables serán trnasformadas a factores. Posteriormente dicha información será empleada para generar gráficos del tipo boxplot.
+
+-   *ui*
+
+```{r}
+
+library(shiny)
+
+shinyUI(fluidPage(
+  
+  titlePanel("Datos de motor trends de 1974"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput(
+        inputId = "Variable",
+        label = "Selecciona la Variable x:",
+        choices = c("cyl", "disp", "hp", "drat", "wt", "qsec", "vs", "am", "gear", "carb"),
+        selected = "wt"),
+      checkboxGroupInput(
+        inputId = "Factores",
+        label = "Transformar a factores",
+        choices = c("cyl", "disp", "hp", "drat", "wt", "qsec", "vs", "am", "gear", "carb"),
+        selected = "am"
+      ),
+      textInput(
+        inputId = "Formula", 
+        label = "Escribe la formula de tu modelo:",
+        value =  "y ~ x + I(x^2)"
+      ),
+      submitButton(
+        text = "Actualizar modelo",
+        icon = icon(name = "refresh")
+      )
+    ),
+    
+    mainPanel(
+      plotOutput("distPlot")
+    )
+  )
+))library(shiny)
+
+shinyUI(fluidPage(
+  
+  titlePanel("Datos de motor trends de 1974"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput(
+        inputId = "Variable",
+        label = "Selecciona la Variable x:",
+        choices = c("cyl", "disp", "hp", "drat", "wt", "qsec", "vs", "am", "gear", "carb"),
+        selected = "wt"),
+      checkboxGroupInput(
+        inputId = "Factores",
+        label = "Transformar a factores",
+        choices = c("cyl", "disp", "hp", "drat", "wt", "qsec", "vs", "am", "gear", "carb"),
+        selected = "am"
+      ),
+      textInput(
+        inputId = "Formula", 
+        label = "Escribe la formula de tu modelo:",
+        value =  "y ~ x + I(x^2)"
+      ),
+      submitButton(
+        text = "Actualizar modelo",
+        icon = icon(name = "refresh")
+      )
+    ),
+    
+    mainPanel(
+      plotOutput("distPlot")
+    )
+  )
+))
+
+```
+
+-   *server*
+
+```{r}
+
+library(shiny)
+library(tidyverse)
+
+data("mtcars")
+
+shinyServer(function(input, output) {
+  
+  output$distPlot <- renderPlot({
+    
+    map_at(
+      .x = mtcars,
+      .f = factor,
+      .at = input$Factores
+    ) %>% 
+      as.data.frame() %>% 
+      ggplot(
+      aes_string(x = input$Variable, y = "mpg")
+      ) + 
+      stat_smooth(
+        method = "lm", 
+        formula = input$Formula
+        ) + 
+      geom_point() + 
+      theme_bw()
+  })
+  
+})
+
+```
+
+Ahora, para obtener distintos `geom` para diferentes clases:
